@@ -1,124 +1,70 @@
-# Smart Knob Firmware by @Seedlabs.it
-## Current Version: 0.1
-## Supports: Smart Knob Dev Kit v0.1
+# overview
+## introduction
+Discoknob is a respin of [Seedlabs' Smart Knob Dev Kit](https://github.com/SeedLabs-it/smartknob-firmware), which is built on top of [ScottBez](https://github.com/scottbez1)'s original [smart knob](https://github.com/scottbez1/smartknob/), and repackaged to fit into a doublegang outlet/switchbox. From a software standpoint, it is largely a stripped down from Seedlabs' Dev Kit 0.1 version, and shares much of the same core hardware. Discoknob adds a couple capabilities to help control the discoball in our living room, and to control a some other connected devices.
 
-### Table of Contents
-1. [Introduction](#introduction)
-2. [Why a Smart Knob Development Kit](#why)
-3. [Product Specifications](#specs)
-4. [How to use this codebase](#what)
-5. [Build vs Buy](#build-vs-buy) 
-6. [License](#license) 
-7. [FAQ](#faq)
+#### discoknob demo
+![discoknob demo](media/discoknob_demo.gif)
 
+## motivation 
+I came across ScottBez's original Smart Knob project around when it came out and thought it was a super cool idea. It wasn't until years later that I considered building my own, and found the Seedlab's Dev Kit version that leveled up the original design. The concept of "apps" felt very intuitive and their framework made it easy to add new ones.
 
-### Introduction  <a name="introduction"></a>
-The Smart Knob Dev Kit project is part of the family of products developed by Seedlabs. Seedlabs is focused in accellerating the transition to a modern grid: open source, distributed, digital and decarbonized. This particular product is designed for the community of developers and hardware tinkerers interested in contributing to the Seedlabs ecosystems.  
+I decided that if I were to build my own, I'd want to really lean into the Nest-like experience, and then also give it a dedicated purpose in our mostly unconnected/unautomated apartment.
 
-This project is based on [ScottBez](https://github.com/scottbez1)'s original [smart knob](https://github.com/scottbez1/smartknob/) design. Without his work and committment to the open source community, this codebase would not exist.
+## design
+The main design goals were to:
+1. Drive the discoball in our living room, specifically spin the ball motor and control the spotlights
+2. Wall mount the device to replace an existing doublegang outlet/switchbox
 
-### Why a Smart Knob Development Kit <a name="why"></a>
+### discoball driver
+For the first goal, I needed to figure out how wirelessly do both of these things. The [two spotlights](https://a.co/d/75LlCRr) are from some non-descript brand that came with some generic remotes. Upon peeling back the overlay on the remote, a PCB serial code lookup revealed the universally seen [433MHz remote](https://fcc.report/FCC-ID/2AUSN-LXZK1021/4490455.pdf). This led me to a successive Amazon purchase of some [generic 433MHz receiver and transmitter modules](https://a.co/d/hEBihKS), and a hunt to decode the radio signals.
 
-Seedlabs' mission is to assist people in producing and consuming energy in a smarter way, encompassing everything from electricity to heating. To achieve this, we recognize the need for a certain level of automation in residential spaces, which necessitates dedicated software and hardware.
+Upon powering a receiver and probing the RX pin with a logic analyzer, I was able to distinguish the on-off-key (OOK) signal and record each remote button's 25 bit sequence. These were then passed back through a transmitter using the RCSwitch library at a 500us pulsewidth which successfully spoofed the remote.
 
-A key part of persuading people to be mindful of their energy consumption is to ensure they don't have to constantly think about it. We aim to avoid creating another complex energy monitoring system that demands extensive knowledge of software and hardware, has a complicated user interface, and is difficult to maintain.
+The discoball motor was a separate challenge - to spin the motor I would need something directly driving it. I had a leftover stepper motor and stepper motor driver from the Wallflower's NeonRotator builds, so I paired those with an ESP32C3 loaded with a barebones FW build that listened for ESP-NOW messages and outputted a PWM/direction line to the driver, and threw it all into an enclosure. It's overkill but it serves it's purpose.
 
-Instead, our goal is to create delightful experiences for our users, helping them seamlessly integrate smart energy solutions into their daily lives.
-One of our priorities is to craft natural user-machine interaction in our controllers. We're competing with solutions as straightforward as a traditional light switch. The original Smart Knob design innovatively combined four different interaction patterns: a rotary controller, a push button, a display, and force/torque-based haptic feedback. While there are many possibilities for what can be done, creating an intuitive user experience is a challenging yet rewarding task.
+<!-- <details>
+<summary>discoball mount</summary> -->
+<img src="media/discoball_mount.gif" alt="discoball mount" width="50%" />
+<!-- </details> -->
 
-As [Grigorii](https://github.com/brushknight/) was implementing Scott's original design, we received hundreds of requests from around the world. People are eager to experiment with the knob, potentially developing software and hardware extensions for it. We saw this as a fantastic opportunity to engage a wider community in addressing the question of what makes an ideal residential controller. Therefore, we decided to manufacture a development kit specifically for this purpose.
+### wall mounting
+To make this work in a gangbox, I needed to figure out how to power the device *and* make it fit within the confines of the box. I was able to find a [120VAC/5VDC converter](https://www.digikey.com/en/products/detail/recom-power/RAC15-05SK/9356902) with a small enough footprint, and with a bit of component reshuffling, I was able to pack it all in. The final result is a bit bulky, also because I decided to stack a full DevKitC-1 onto the board rather than use a standalone ESP32S3 WROOM module. It fits and at least has provides a bit of component symmetry on the rear side.
 
-### Product Specifications <a name="specs"></a>
+#### discoknob fitment
+<img src="media/discoknob_fitment.gif" alt="discoknob fitment" width="50%" />
 
-This development kit is based on the original Smart Knob design, but features some changes to facilitate development and test new interaction pattern. 
+### hw architecture
+Again, most of the architecture is recycled based off of the original designs, but here is the full system at an overview:
 
-Specifically: 
+#### discoknob architecture diagram
+<img src="media/discoknob_HW_architecture.png" alt="discoknob system architecture" width="65%" />
 
-#### List of hardware and mechanical changes
-- esp32s3-n16r8-u
-- 72 addressable ec15 rgb leds (positions in cricle around the knob, at 5 degree angle from each other)
-- Proximity sensor based on ToF VL53L0X
-- 8 conductos 0.5mm pitch FPC calbe to drive screen
-- reset and boot buttons
-- 7 additional GPIOs on the back side
-- 3 stemma qt connectors onthe back for i2c modules
-- Slight change of the knob shape for better grip
-- Redesign of the enclosure to allow for leds to light through 
+#### final assembly
+To complete the look, I designed a faceplate to sit over the knob. The resin print with a layer of white spray paint helped it blend in nicely. Here's the final result:
 
+#### discoknob exploded view
+![full assembly](media/discoknob_exploded.gif)
 
+<details>
+<summary>discoknob board model</summary>
+<img src="media/discoknob_board.gif" alt="discoknob board" width="50%" />
+</details>
 
-#### List of software changes (yet not merged #3)
-- Firmware extended to support the new hardware
-- WiFi support
-- MQTT setup included in the onboarding flow
-- Code refactored to allow the concept of Apps and Menu
+[discoknob schematic](media/discoknob_schematic.pdf)
 
+### changelist from Seedlabs' Dev Kit
+Here's an overview of the HW differences from Seedlabs' Dev Kit:
+- ESP32S3-DevKitC-1 N8R8 mounted directly on board instead of standalone module
+- 433MHz transmitter added for RF capabilities
+- VL6180x used for ALS and ToF sensing
+- INMP441 microphone added for audio input
+- 24 side-firing SK6812 RGB LEDs used
+- XIAO Round Display instead of FPC-connected screen
 
+### sw architecture
+As mentioned, discoknob's software is a neutered version of the Dev Kit 0.1's software. I gutted a couple of things, namely:
+- Most of the apps
+- The onboarding flow
+- HASS (Home Assistant) connectivity 
 
-### How to use this codebase <a name="what"></a>
-
-To get started with working on the firmware for Seedlabs' SmartKnob, and to flash the firmware onto your device, follow these steps. This guide specifically recommends using Visual Studio Code (VSCode) as the IDE, assuming you have PlatformIO installed in VSCode and that your SmartKnob is connected to your computer via a USB-C port.
-
-#### Setting Up a PlatformIO Project in VSCode
-
-1. **Open VSCode:** Launch Visual Studio Code where PlatformIO is installed as an extension.
-2. **Open the Project:** Use the "Open Folder" option in VSCode (usually found under the "File" menu) and select the directory of the cloned repository.
-3. **Install Dependencies:** PlatformIO will automatically attempt to resolve and install any dependencies specified in the project configuration.
-
-#### Flashing the Firmware
-
-1. **Connect the SmartKnob:** Ensure the SmartKnob is connected to your computer via the USB-C port. Our current hardware setup doesn't require dedicated hardware to communicate to the ESP32.
-2. **Open the Task Menu:** In VSCode with PlatformIO, you can access various tasks, including building and flashing firmware, through the task menu. This is often found in the bottom bar of VSCode or under the PlatformIO icon on the sidebar.The project task folder to use is _seedlabs_devkit_. 
-3. **Build the Project:** Before flashing, you might want to build the project to ensure there are no compilation errors. Look for a task named "Build" and click it.
-4. **Flash the Firmware:** Find a task named "Upload" or "Upload and Monitor" within the _seedlabs_devkit_ tasks. This task compiles the firmware (if not already compiled) and flashes it to the SmartKnob. Click this task to start the flashing process.
-
-- **Note:** If VSCode asks for the port or detects multiple devices, make sure to select the one corresponding to your SmartKnob. The port might be named differently depending on your operating system but generally contains identifiers like `COM` (Windows) or `/dev/tty` (Linux/macOS). If VSCode doesn't recognize the SmartKnob as attached to the computer, you need to put the SmartKnob in boot mode. To do so, on the back of your SmartKnob there are two buttons (EN/RST and BOOT). Hold both the BOOT and EN/RST, then release EN/RST. Your IDE should know see the Dev Kit.   
-
-5. **Monitor Output:** You can monitor the flashing process in the terminal or output window of VSCode. Once the process is complete, you should see a success message indicating that the firmware has been successfully flashed to the SmartKnob.
-
-
-
-### Build vs Buy <a name="build-vs-buy"></a>
-
-In this codebase, you will find all the materials needed to create your own smart knob. This includes KiCad files for the PCB, Fusion 360 files for the enclosure, a bill of materials for the components, and firmware to flash the device.
-We also offer a fully assembled version of the smart knob (soldered PCB with a plastic enclosure) that is pre-flashed with firmware, available in our [store](https://store.seedlabs.it/products/smartknob-devkit-v1-0).
-Our aim is to continue offering the device at a no-profit cost. In other words, even considering the shipping costs, it's unlikely that you'll spend less than what our store charges.
-
-That said, our goal is not to manufacture this kit at scale, nor to maintain a constant backstock of it. As such, it might take longer to receive it from us.
-Additionally, if you have experience with PCB soldering, using pick and place machinery, or if you are interested in exploring how to get this built through third-party services, this project is an excellent opportunity to get your hands dirty. However, make sure you fully understand what you are embarking on, as this project is not entry-level, both from a mechanical and electronic standpoint.
-
-Either way, if you have any questions, feel free to drop by our [Discord server](https://discord.gg/8tgPc484nA).
-
-
-
-### License <a name="license"></a>
-
-A more detailed license can be found in the license file.
-
-In this paragraph, we aim to present a layman's version of the spirit behind it. Our goal is to enable as many contributions as possible to the Seedlabs ecosystem of open hardware. Additionally, we want to preserve the spirit behind the original project (Apache V2, Creative Commons Attribution) and all the libraries that have been used in this codebase.
-
-As such, we require that:
-
-1. All changes you make to the software and hardware are shared with the community in an open-source manner, maintaining the same spirit of the license used here.
-
-2. You can use the hardware and software of this project for educational and personal projects. This means you can build as many smart knobs as you want, as long as they are used in an educational setting (e.g., if you are a university and want to offer the device as part of a course) or for personal use (e.g., if you want to install 10 dev kits in your home).
-
-3. You can use the hardware and software of this project for commercial purposes, but you first need to obtain a partnership agreement with Seedlabs. This ensures that proper attribution is in place, all changes implemented remain open source, and there is a reasonable redirection (royalties) of the value generated by the work of the community towards the ultimate goal of this project. This arrangement varies depending on the downstream utilization. The spirit behind these requirements is to stay true to Seedlabs' mission. For instance, we might charge higher royalties if this project is used in a petrol car, as opposed to being used in a medical device.
-Ultimately, this work is derivative of the original Smart Knob project. If you find the license too stringent for your use case, we recommend exploring the original version and building directly from it.
-
-
-  
-### FAQ <a name="faq"></a>
-
-#### I want to understand better how the Smart Knob is assembled and works?
-
-Scott's original "Inside the SmartKnob View" remains highly relevant, despite some differences in the design of the enclosure and PCB.
-<a href="https://www.youtube.com/watch?v=Q76dMggUH1M">
-    <img src="https://img.youtube.com/vi/Q76dMggUH1M/maxresdefault.jpg" width="480" />
-</a>
-
-#### How do I flash my Seedlabs' Smart Knob Dev Kit?
-
-Our Smart Knob Dev Kit comes with pre-flashed firmware, the same version that you can find in this repository. The Smart Knob uses [PlatformIO](https://platformio.org/) to build the firmware. We recommend using [Microsoft Visual Studio Code](https://code.visualstudio.com/) as the development environment, where you can install the PlatformIO IDE.
-
-To proceed, check out this codebase on your machine. Then, from Visual Studio Code, navigate to the PlatformIO tab. Select 'Upload and Monitor All' from the Project Tasks. This will open a terminal, compile the code, upload the firmware, and monitor the serial communication between your computer and the knob.
+The intent was to keep it lean in terms of getting the device onto my WiFi and connected to my MQTT broker. The demo apps were interesting but didn't align with how I envisioned using this. I also added a simple remote lockout feature to ensure that only one web client is able to send commands to the discoknob at a time. My only other addition was integrating in some [smart switches](https://www.athom.tech/blank-1/us-v2-plug-for-esphome) which are accessible via MQTT with some minor reconfiguration. This was an added novelty to turn on and off some lights that are otherwise hard to reach, and leveraged the existing "light_switch" app to implement them.

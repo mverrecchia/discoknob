@@ -11,15 +11,12 @@
 #include "app_config.h"
 
 #include "apps/apps.h"
-#include "apps/hass/hass_apps.h"
 #include "apps/demo/demo_apps.h"
 
-#include "onboarding_flow/onboarding_flow.h"
 #include "error_handling_flow/error_handling_flow.h"
 
-const uint8_t BOOT_MODE_NOT_SET = 0;
-const uint8_t BOOT_MODE_ONBOARDING = 1;
-const uint8_t BOOT_MODE_HASS = 2;
+// In simplified version, we only have Demo mode
+const uint8_t BOOT_MODE_DEMO = 0;
 
 class DisplayTask : public Task<DisplayTask>
 {
@@ -33,12 +30,8 @@ public:
 
     void setBrightness(uint16_t brightness);
     void setApps(Apps apps);
-    OnboardingFlow *getOnboardingFlow();
+    // Only Demo mode is needed in simplified version
     DemoApps *getDemoApps();
-    HassApps *getHassApps();
-
-    void enableOnboarding();
-    void enableHass();
     void enableDemo();
 
     ErrorHandlingFlow *getErrorHandlingFlow();
@@ -54,9 +47,8 @@ private:
     /** Full-size sprite used as a framebuffer */
     TFT_eSprite spr_ = TFT_eSprite(&tft_);
 
-    OnboardingFlow onboarding_flow = OnboardingFlow(&spr_, TFT_eSprite(&tft_));
+    // Only Demo mode is used in simplified version
     DemoApps demo_apps;
-    HassApps hass_apps;
     ErrorHandlingFlow error_handling_flow = ErrorHandlingFlow(&spr_, TFT_eSprite(&tft_));
 
     QueueHandle_t app_state_queue_;
@@ -66,7 +58,7 @@ private:
     uint16_t brightness_;
     char buf_[128];
 
-    OSMode os_mode;
+    // Only Demo mode in simplified version
     ErrorType error_type;
 };
 

@@ -176,7 +176,7 @@ void OnboardingFlow::handleEvent(WiFiEvent event)
         current_page = ONBOARDING_FLOW_PAGE_STEP_HASS_8;
         sprintf(mqtt_server, "%s:%d", event.body.mqtt_connecting.host, event.body.mqtt_connecting.port);
         is_onboarding_finished = true;
-        os_config_notifier->setOSMode(Hass);
+        // os_config_notifier->setOSMode(Hass);
         break;
     case SK_MQTT_STATE_UPDATE:
         break;

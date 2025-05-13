@@ -67,12 +67,26 @@ struct SystemState
     float esp32_temperature;
 };
 
+struct MicrophoneState
+{
+    bool clap_detected;
+    bool double_clap_detected;
+    unsigned long last_clap_time;
+    uint8_t clap_count;
+    
+    // FFT analysis results
+    float fft_low_band;  // Average of low frequency band
+    float fft_mid_band;  // Average of mid frequency band 
+    float fft_high_band; // Average of high frequency band
+};
+
 struct SensorsState
 {
     ProximityState proximity;
     StrainState strain;
     IlluminationState illumination;
     SystemState system;
+    MicrophoneState microphone;
 };
 
 struct ScreenState
@@ -98,6 +112,7 @@ struct AppState
 
 struct EntityStateUpdate
 {
+    char topic[256] = "";
     char app_id[256] = "";
     char entity_id[256] = "";
     char state[256] = "";

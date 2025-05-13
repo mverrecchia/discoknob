@@ -56,14 +56,12 @@ struct WiFiConfiguration
 
 enum OSMode
 {
-    Onboarding = 0,
-    Demo = 1,
-    Hass = 2
+    Demo = 0
 };
 
 struct OSConfiguration
 {
-    OSMode mode = Onboarding;
+    OSMode mode = Demo;  // Default to Demo since it's the only mode
 };
 
 class Configuration

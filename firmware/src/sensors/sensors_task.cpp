@@ -4,13 +4,9 @@
 
 // todo: think on thise compilation flags
 
-#if SK_ALS
-#include <Adafruit_VEML7700.h>
-#endif
-
 static const char *TAG = "sensors_task";
 
-SensorsTask::SensorsTask(const uint8_t task_core, Configuration *configuration) : Task{"Sensors", 1024 * 6, 1, task_core}, configuration_(configuration)
+SensorsTask::SensorsTask(const uint8_t task_core, Configuration *configuration) : Task{"Sensors", 1024 * 8, 0, task_core}, configuration_(configuration)
 {
     mutex_ = xSemaphoreCreateMutex();
 
@@ -28,18 +24,15 @@ SensorsTask::~SensorsTask()
 
 void SensorsTask::run()
 {
-
     Wire.begin(PIN_SDA, PIN_SCL);
     // TODO make this configurable
     Wire.setClock(400000);
-
-    Adafruit_VL53L0X lox = Adafruit_VL53L0X();
 
 #if SK_STRAIN
     strain.begin(PIN_STRAIN_DO, PIN_STRAIN_SCK);
     while (!strain.is_ready())
     {
-        LOGV(PB_LogLevel_DEBUG, "Strain sensor not ready, waiting...");
+        LOGD("Strain sensor not ready, waiting...");
         delay(100);
     }
     if (configuration_->get().strain_scale == 0)
@@ -50,7 +43,7 @@ void SensorsTask::run()
     {
         calibration_scale_ = configuration_->get().strain_scale;
     }
-    LOGV(PB_LogLevel_DEBUG, "Strain scale set at boot, %f", calibration_scale_);
+    LOGD("Strain scale set at boot, %f", calibration_scale_);
     strain.set_scale(calibration_scale_);
     delay(100);
     strain.set_offset(0);
@@ -61,43 +54,25 @@ void SensorsTask::run()
     raw_initial_value_ = strain.get_units(10);
 #endif
 
-#if SK_ALS
-    Adafruit_VEML7700 veml = Adafruit_VEML7700();
-    float luminosity_adjustment = 1.00;
-    const float LUX_ALPHA = 0.005;
-    float lux_avg;
-    float lux = 0;
-
-    if (veml.begin())
+    if (!vl6180x.begin())
     {
-        veml.setGain(VEML7700_GAIN_2);
-        veml.setIntegrationTime(VEML7700_IT_400MS);
+        LOGE("Failed to boot VL6180X");
     }
     else
     {
-        LOGE("Failed to boot VEML7700");
+        LOGI("VL6180X initialized successfully");
     }
 
-#endif
+    // Initialize moving average filters
+    MovingAverage lux_filter(10);
+    MovingAverage range_filter(10);
 
-    if (lox.begin())
-    {
-        VL53L0X_RangingMeasurementData_t measure;
-        lox.rangingTest(&measure, false);
-        LOGD("Proximity range %d, distance %dmm\n", measure.RangeStatus, measure.RangeMilliMeter);
-    }
-    else
-    {
-        LOGE("Failed to boot VL53L0X");
-    }
-
-    VL53L0X_RangingMeasurementData_t measure;
-    lox.rangingTest(&measure, false);
     unsigned long last_proximity_check_ms = 0;
     unsigned long last_strain_check_ms = 0;
     unsigned long last_tare_ms = 0;
     unsigned long last_illumination_check_ms = 0;
 
+    unsigned long log_ms_calib = 10000;
     unsigned long log_ms = 0;
     unsigned long log_ms_strain = 0;
 
@@ -142,12 +117,20 @@ void SensorsTask::run()
 
         if (millis() - last_proximity_check_ms > 1000 / proximity_poling_rate_hz)
         {
+            uint8_t range = vl6180x.readRange();
+            uint8_t status = vl6180x.readRangeStatus();
 
-            lox.rangingTest(&measure, false);
+            if (status == 0)
+            { // 0 means no error
+                sensors_state.proximity.RangeMilliMeter = range - PROXIMITY_SENSOR_OFFSET_MM;
+                sensors_state.proximity.RangeStatus = 0; // Success
+            }
+            else
+            {
+                sensors_state.proximity.RangeMilliMeter = 0;
+                sensors_state.proximity.RangeStatus = status;
+            }
 
-            sensors_state.proximity.RangeMilliMeter = measure.RangeMilliMeter - PROXIMITY_SENSOR_OFFSET_MM;
-            sensors_state.proximity.RangeStatus = measure.RangeStatus;
-            // todo: call this once per tick
             publishState(sensors_state);
             last_proximity_check_ms = millis();
         }
@@ -158,13 +141,16 @@ void SensorsTask::run()
             {
                 if (calibration_scale_ == 1.0f && strain.get_scale() == 1.0f && factory_strain_calibration_step_ == 0)
                 {
-                    LOGI("Strain sensor needs Factory Calibration, press 'Y' to begin!");
-                    delay(2000);
+                    if (millis() - log_ms_calib > 10000)
+                    {
+                        LOGW("Strain sensor needs Factory Calibration, press 'Y' to begin!");
+                        log_ms_calib = millis();
+                    }
                     do_strain = false;
                 }
                 else if (weight_measurement_step_ != 0 || factory_strain_calibration_step_ != 0)
                 {
-                    delay(100);
+                    delay(1);
                     do_strain = false;
                 }
 
@@ -267,7 +253,7 @@ void SensorsTask::run()
 
                         if (sensors_state.strain.virtual_button_code == VIRTUAL_BUTTON_IDLE && millis() - short_pressed_triggered_at_ms > 100 && press_value_unit < strain_released && 0.025 < abs(sensors_state.strain.press_value - last_press_value_) < 0.1 && millis() - last_tare_ms > 10000)
                         {
-                            LOGV(PB_LogLevel_DEBUG, "Strain sensor tare.");
+                            // LOGD("Strain sensor tare.");
                             strain.tare();
                             last_tare_ms = millis();
                         }
@@ -284,28 +270,24 @@ void SensorsTask::run()
             {
                 if (do_strain && strain_powered && millis() - log_ms_strain > 4000)
                 {
-                    LOGV(PB_LogLevel_DEBUG, "Strain sensor not ready, waiting...");
+                    LOGD("Strain sensor not ready, waiting...");
                     log_ms_strain = millis();
                 }
                 else if (millis() - log_ms_strain > 4000)
                 {
-                    LOGV(PB_LogLevel_DEBUG, "Strain sensor is disabled. (Might be because of factory calib or its powered off because no engagement of knob)");
+                    LOGD("Strain sensor is disabled. (Might be because of factory calib or its powered off because no engagement of knob)");
                     log_ms_strain = millis();
                 }
             }
         }
 #endif
 
-#if SK_ALS
         if (millis() - last_illumination_check_ms > 1000 / illumination_poling_rate_hz)
         {
-
-            lux = veml.readLux();
-            lux_avg = lux * LUX_ALPHA + lux_avg * (1 - LUX_ALPHA);
-
-            // looks at the lower part of the sensor spectrum (0 = dark)
-
-            luminosity_adjustment = min(1.0f, lux_avg);
+            // Read lux with default gain (VL6180X_ALS_GAIN_1)
+            float lux = vl6180x.readLux(VL6180X_ALS_GAIN_1);
+            float lux_avg = lux_filter.addSample(lux);
+            float luminosity_adjustment = min(1.0f, lux_avg / 1000.0f); // Normalize to 0-1 range
 
             sensors_state.illumination.lux = lux;
             sensors_state.illumination.lux_avg = lux_avg;
@@ -313,18 +295,23 @@ void SensorsTask::run()
 
             last_illumination_check_ms = millis();
         }
-#endif
 
         if (millis() - log_ms > 1000)
         {
-            LOGV(PB_LogLevel_DEBUG, "System temp %0.2f °C", last_system_temperature);
-            LOGV(PB_LogLevel_DEBUG, "Proximity sensor:  range %d, distance %dmm", measure.RangeStatus, measure.RangeMilliMeter);
+            LOGD("System temp %0.2f °C", last_system_temperature);
+            LOGD("Proximity sensor: range %d, distance %dmm",
+                 sensors_state.proximity.RangeStatus,
+                 sensors_state.proximity.RangeMilliMeter);
 #if SK_STRAIN
-            LOGV(PB_LogLevel_DEBUG, "Strain: reading:\n        Virtual button code: %d\n        Strain value: %f\n        Press value: %f", sensors_state.strain.virtual_button_code, sensors_state.strain.raw_value, press_value_unit);
+            LOGD("Strain: reading:        Virtual button code: %d        Strain value: %f        Press value: %f",
+                 sensors_state.strain.virtual_button_code,
+                 sensors_state.strain.raw_value,
+                 press_value_unit);
 #endif
-#if SK_ALS
-            LOGV(PB_LogLevel_DEBUG, "Illumination sensor: millilux: %.2f, avg %.2f, adj %.2f", lux * 1000, lux_avg * 1000, luminosity_adjustment);
-#endif
+            LOGD("Illumination sensor: millilux: %.2f, avg %.2f, adj %.2f",
+                 sensors_state.illumination.lux,
+                 sensors_state.illumination.lux_avg,
+                 sensors_state.illumination.lux_adj);
             log_ms = millis();
         }
         delay(1);
@@ -382,7 +369,7 @@ void SensorsTask::factoryStrainCalibrationCallback(float calibration_weight)
         {
             calibration_scale_ = configuration_->get().strain_scale;
         }
-        LOGV(PB_LogLevel_DEBUG, "Strain scale set at boot, %f", calibration_scale_);
+        LOGD("Strain scale set at boot, %f", calibration_scale_);
         strain.set_scale(calibration_scale_);
         delay(100);
         strain.set_offset(0);
@@ -461,7 +448,7 @@ void SensorsTask::weightMeasurementCallback()
     if (weight_measurement_step_ == 0)
     {
         weight_measurement_step_ = 1;
-        LOGI("Weight measurement step 1: Place weight on KNOB and press 'U' again");
+        LOGI("Weight measurement step 1: Place weight on KNOB and press 'w' again");
         delay(1000);
         strain.set_offset(0);
         strain.tare();
@@ -500,7 +487,7 @@ void SensorsTask::strainPowerDown()
 
     if (strain.wait_ready_timeout(10)) // Make sure sensor is on before powering down.
     {
-        LOGV(PB_LogLevel_DEBUG, "Strain sensor power down.");
+        LOGD("Strain sensor power down.");
 
         strain_powered = false;
         strain.power_down();
@@ -511,10 +498,10 @@ void SensorsTask::strainPowerUp() // Delays caused a perceived delay in the acti
 {
     if (!strain.wait_ready_timeout(10)) // Make sure sensor is off before powering up.
     {
-        LOGV(PB_LogLevel_DEBUG, "Strain sensor power up.");
+        LOGD("Strain sensor power up.");
 
         strain.power_up();
-        if (strain.wait_ready_timeout(100))
+        if (strain.wait_ready_timeout(500))
         {
             strain.set_offset(0);
             strain.tare();

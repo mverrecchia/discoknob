@@ -17,6 +17,7 @@
 #include "network/mqtt_task.h"
 #include "led_ring/led_ring_task.h"
 #include "sensors/sensors_task.h"
+#include "microphone/microphone_task.h"
 #include "error_handling_flow/reset_task.h"
 
 #include "notify/motor_notifier/motor_notifier.h"
@@ -32,17 +33,16 @@ class RootTask : public Task<RootTask>
     friend class Task<RootTask>; // Allow base Task to invoke protected run()
 
 public:
-    RootTask(const uint8_t task_core, Configuration *configuration, MotorTask &motor_task, DisplayTask *display_task, WifiTask *wifi_task, MqttTask *mqtt_task, LedRingTask *led_ring_task, SensorsTask *sensors_task, ResetTask *reset_task);
+    RootTask(const uint8_t task_core, Configuration *configuration, MotorTask &motor_task, DisplayTask *display_task, WifiTask *wifi_task, MqttTask *mqtt_task, LedRingTask *led_ring_task, SensorsTask *sensors_task, MicrophoneTask *microphone_task, ResetTask *reset_task);
     virtual ~RootTask();
     void loadConfiguration();
-
-    void setHassApps(HassApps *apps);
 
     void addListener(QueueHandle_t queue);
 
     QueueHandle_t getConnectivityStateQueue();
     QueueHandle_t getMqttStateQueue();
     QueueHandle_t getSensorsStateQueue();
+    QueueHandle_t getMicrophoneStateQueue();
     QueueHandle_t getAppSyncQueue();
 
 protected:
@@ -58,9 +58,9 @@ private:
     DisplayTask *display_task_;
     WifiTask *wifi_task_;
     MqttTask *mqtt_task_;
-    HassApps *hass_apps;
     LedRingTask *led_ring_task_;
     SensorsTask *sensors_task_;
+    MicrophoneTask *microphone_task_;
     ResetTask *reset_task_;
     char buf_[128];
 
@@ -89,6 +89,7 @@ private:
     ConnectivityState latest_connectivity_state_ = {};
     MqttState latest_mqtt_state_ = {};
     SensorsState latest_sensors_state_ = {};
+    MicrophoneState latest_microphone_state_ = {};
 
     cJSON *apps_ = NULL;
 
@@ -98,6 +99,7 @@ private:
     QueueHandle_t connectivity_status_queue_;
     QueueHandle_t mqtt_status_queue_;
     QueueHandle_t sensors_status_queue_;
+    QueueHandle_t microphone_status_queue_;
 
     QueueHandle_t app_sync_queue_;
 

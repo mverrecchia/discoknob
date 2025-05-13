@@ -69,7 +69,6 @@ private:
     void publishWiFiEvent(WiFiEvent event);
     void startWebServer();
     bool is_webserver_started = false;
-    void startWiFiAP();
     bool startWiFiSTA(WiFiConfiguration wifi_config);
     bool tryNewCredentialsWiFiSTA(WiFiConfiguration wifi_config);
 

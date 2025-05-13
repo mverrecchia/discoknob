@@ -15,6 +15,7 @@ public:
     void updateStateFromSystem(AppState state);
 
 private:
+    uint8_t peerAddress[6]; // Add this line to define the peerAddress member variable
     uint8_t current_closed_position = 0;
     uint8_t last_closed_position = 0;
     char buf_[24];

@@ -6,7 +6,7 @@ SettingsApp::SettingsApp(TFT_eSprite *spr_) : App(spr_)
 {
     sprintf(app_id, "%s", "settings");
     sprintf(entity_id, "%s", "settings");
-    sprintf(friendly_name, "%s", "Settings");
+    sprintf(friendly_name, "%s", "");
 
     sprintf(fw_version, "FW: %s", "v0.1-demo");
     sprintf(room, "%s", "Kitchen");

@@ -32,8 +32,8 @@ Configuration::Configuration()
             }),
         mac_address.end());
 
-    sprintf(wifi_config.knob_id, "%s", std::string("SKDK_" + mac_address.substr(mac_address.length() - 6)).c_str());
-    sprintf(mqtt_config.knob_id, "%s", wifi_config.knob_id);
+    sprintf(wifi_config.knob_id, "%s", "Smartknob"); // std::string("SKDK_" + mac_address.substr(mac_address.length() - 6)).c_str());
+    sprintf(mqtt_config.knob_id, "%s", "Smartknob");
 }
 
 Configuration::~Configuration()
@@ -153,7 +153,7 @@ bool Configuration::resetToDefaults()
 {
     EEPROM.put(WIFI_SET_EEPROM_POS, false);
     EEPROM.put(MQTT_SET_EEPROM_POS, false);
-    EEPROM.put(OS_MODE_EEPROM_POS, Onboarding);
+    EEPROM.put(OS_MODE_EEPROM_POS, Demo);
     EEPROM.commit();
     return true;
 }
@@ -178,17 +178,14 @@ WiFiConfiguration Configuration::getWiFiConfiguration()
     return wifi_config;
 }
 
+#include "demo_config.h"
+
 bool Configuration::loadWiFiConfiguration()
 {
-
-    char buf_[512];
-
-    EEPROM.get(WIFI_SSID_EEPROM_POS, wifi_config.ssid);
-    EEPROM.get(WIFI_PASSPHRASE_EEPROM_POS, wifi_config.passphrase);
-    EEPROM.get(WIFI_SET_EEPROM_POS, is_wifi_set);
-
-    sprintf(buf_, "loaded wifi credentials %s %s %d", wifi_config.ssid, wifi_config.passphrase, is_wifi_set);
-    LOGD(buf_);
+    // In simplified version, always use demo credentials
+    strcpy(wifi_config.ssid, DEMO_WIFI_SSID);
+    strcpy(wifi_config.passphrase, DEMO_WIFI_PASS);
+    is_wifi_set = true;
 
     return is_wifi_set;
 }
@@ -217,16 +214,12 @@ MQTTConfiguration Configuration::getMQTTConfiguration()
 
 bool Configuration::loadMQTTConfiguration()
 {
-    char buf_[512];
-
-    EEPROM.get(MQTT_HOST_EEPROM_POS, mqtt_config.host);
-    EEPROM.get(MQTT_PORT_EEPROM_POS, mqtt_config.port);
-    EEPROM.get(MQTT_USER_EEPROM_POS, mqtt_config.user);
-    EEPROM.get(MQTT_PASS_EEPROM_POS, mqtt_config.password);
-    EEPROM.get(MQTT_SET_EEPROM_POS, is_mqtt_set);
-
-    sprintf(buf_, "loaded MQTT credentials %s %d %s %s %d", mqtt_config.host, mqtt_config.port, mqtt_config.user, mqtt_config.password, is_mqtt_set);
-    LOGD(buf_);
+    // In simplified version, always use demo credentials
+    strcpy(mqtt_config.host, DEMO_MQTT_HOST);
+    mqtt_config.port = DEMO_MQTT_PORT;
+    strcpy(mqtt_config.user, DEMO_MQTT_USER);
+    strcpy(mqtt_config.password, DEMO_MQTT_PASS);
+    is_mqtt_set = true;
 
     return is_mqtt_set;
 }
@@ -254,19 +247,8 @@ bool Configuration::saveOSConfiguration(OSConfiguration os_config)
 
 bool Configuration::loadOSConfiguration()
 {
-    // boot mode
-    EEPROM.get(OS_MODE_EEPROM_POS, os_config.mode);
-
-    if (os_config.mode > Hass)
-    {
-        os_config.mode = Onboarding;
-    }
-
-    if (os_config.mode < 0)
-    {
-        os_config.mode = Onboarding;
-    }
-
+    // In simplified version, we only have Demo mode
+    os_config.mode = Demo;
     return true;
 }
 

@@ -39,7 +39,6 @@ void Apps::clear()
 
 EntityStateUpdate Apps::update(AppState state)
 {
-    // TODO: update with AppState
     EntityStateUpdate new_state_update;
     lock();
     if (active_app == nullptr)
@@ -57,7 +56,6 @@ EntityStateUpdate Apps::update(AppState state)
 
 TFT_eSprite *Apps::renderActive()
 {
-    // TODO: update with AppState
     lock();
     if (active_app != nullptr)
     {
@@ -66,7 +64,6 @@ TFT_eSprite *Apps::renderActive()
         return rendered_spr_;
     }
 
-    //! MIGHT BE WRONG
     if (apps[active_id] == nullptr)
     {
         rendered_spr_ = spr_;
@@ -76,7 +73,6 @@ TFT_eSprite *Apps::renderActive()
     }
 
     active_app = apps[active_id];
-
     rendered_spr_ = active_app->render();
 
     unlock();
@@ -97,7 +93,6 @@ void Apps::setActive(int8_t id)
     active_id = id;
     if (apps[active_id] == nullptr)
     {
-        // TODO: panic?
         LOGW("Null pointer instead of app");
     }
     else
@@ -107,15 +102,13 @@ void Apps::setActive(int8_t id)
     unlock();
 }
 
-void Apps::updateMenu() // BROKEN FOR NOW
+void Apps::updateMenu()
 {
     lock();
     menu = std::make_shared<MenuApp>(spr_);
 
     std::map<uint8_t, std::shared_ptr<App>>::iterator it;
-
     uint16_t position = 0;
-
     uint16_t active_color = spr_->color565(0, 255, 200);
     uint16_t inactive_color = spr_->color565(150, 150, 150);
 
@@ -188,6 +181,12 @@ App *Apps::loadApp(uint8_t position, std::string app_slug, char *app_id, char *f
         StopwatchApp *app = new StopwatchApp(this->spr_, app_id);
         // app->friendly_name = friendly_name;
         sprintf(app->friendly_name, "%s", friendly_name);
+        add(position, app);
+        return app;
+    }
+    else if (app_slug.compare(APP_SLUG_DISCOBALL) == 0)
+    {
+        DiscoballApp *app = new DiscoballApp(this->spr_, app_id, friendly_name, entity_id);
         add(position, app);
         return app;
     }
@@ -287,6 +286,7 @@ void Apps::lock()
 {
     xSemaphoreTake(mutex, portMAX_DELAY);
 }
+
 void Apps::unlock()
 {
     xSemaphoreGive(mutex);

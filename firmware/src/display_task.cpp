@@ -22,19 +22,9 @@ DisplayTask::~DisplayTask()
     vSemaphoreDelete(mutex_);
 }
 
-OnboardingFlow *DisplayTask::getOnboardingFlow()
-{
-    return &onboarding_flow;
-}
-
 DemoApps *DisplayTask::getDemoApps()
 {
     return &demo_apps;
-}
-
-HassApps *DisplayTask::getHassApps()
-{
-    return &hass_apps;
 }
 
 ErrorHandlingFlow *DisplayTask::getErrorHandlingFlow()
@@ -69,9 +59,8 @@ void DisplayTask::run()
     }
     spr_.setTextColor(0xFFFF, TFT_BLACK);
 
+    // Only initialize Demo apps in simplified version
     demo_apps = DemoApps(&spr_);
-
-    hass_apps = HassApps(&spr_);
 
     AppState app_state;
 
@@ -93,21 +82,8 @@ void DisplayTask::run()
 
             if (error_handling_flow.getErrorType() == NO_ERROR)
             {
-                switch (os_mode)
-                {
-                case Onboarding:
-                    onboarding_flow.render()->pushSprite(0, 0);
-                    break;
-                case Demo:
-                    demo_apps.renderActive()->pushSprite(0, 0);
-                    break;
-                case Hass:
-                    hass_apps.renderActive()->pushSprite(0, 0);
-                    break;
-                default:
-                    spr_.pushSprite(0, 0);
-                    break;
-                }
+                // In simplified version, always use Demo mode
+                demo_apps.renderActive()->pushSprite(0, 0);
             }
             else
             {
@@ -143,21 +119,10 @@ void DisplayTask::setBrightness(uint16_t brightness)
     brightness_ = brightness >> (16 - SK_BACKLIGHT_BIT_DEPTH);
 }
 
-void DisplayTask::enableOnboarding()
-{
-    os_mode = Onboarding;
-    onboarding_flow.triggerMotorConfigUpdate();
-}
-
 void DisplayTask::enableDemo()
 {
-    os_mode = Demo;
+    // Always in Demo mode in simplified version
     demo_apps.triggerMotorConfigUpdate();
 }
 
-void DisplayTask::enableHass()
-{
-    os_mode = Hass;
-    hass_apps.triggerMotorConfigUpdate();
-}
 #endif

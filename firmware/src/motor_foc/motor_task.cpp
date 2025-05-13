@@ -181,7 +181,7 @@ void MotorTask::run()
                     current_detent_center = shaft_angle + new_sub_position * new_config.position_width_radians;
                 }
                 config = new_config;
-                LOGI("Got new config");
+                // LOGI("Got new config");
 
                 // Update derivative factor of torque controller based on detent width.
                 // If the D factor is large on coarse detents, the motor ends up making noise because the P&D factors amplify the noise from the sensor.

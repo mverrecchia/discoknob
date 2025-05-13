@@ -17,6 +17,7 @@
 #include "apps/music/music.h"
 #include "apps/settings/settings.h"
 #include "apps/stopwatch/stopwatch.h"
+#include "apps/discoball/discoball.h"
 #include "apps/pomodoro/pomodoro.h"
 
 // include all "menu" apps

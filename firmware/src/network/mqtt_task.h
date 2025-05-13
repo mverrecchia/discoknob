@@ -14,11 +14,6 @@
 #include "../events/events.h"
 #include "notify/mqtt_notifier/mqtt_notifier.h"
 
-// struct EntityStateId
-// {
-//     std::string entity_id;
-//     std::string app_id;
-// };
 class MqttTask : public Task<MqttTask>
 {
     friend class Task<MqttTask>; // Allow base Task to invoke protected run()
@@ -64,7 +59,11 @@ private:
     bool is_config_set;
     uint8_t retry_count = 0;
 
-    bool hass_init_acknowledged = false;
+    bool hass_init_acknowledged = true;
+
+    // Manager status publishing
+    unsigned long last_status_publish_time_ = 0;
+    const unsigned long STATUS_PUBLISH_INTERVAL_MS = 2000; // 2 seconds
 
     QueueHandle_t entity_state_to_send_queue_;
     QueueHandle_t shared_events_queue;
@@ -77,6 +76,17 @@ private:
 
     MqttNotifier mqtt_notifier;
 
+    // Client lock management
+    bool client_locked_ = false;
+    String authorized_client_id_ = "";
+    unsigned long lock_timestamp_ = 0;
+    const unsigned long LOCK_TIMEOUT_MS = 30000; // 30 seconds
+
+    // MQTT Topics
+    static const char *MQTT_LOCK_REQUEST_TOPIC;
+    static const char *MQTT_LOCK_RESPONSE_TOPIC;
+    static const char *MQTT_MANAGER_STATUS_TOPIC;
+
     void callback(char *topic, byte *payload, unsigned int length);
 
     void publishAppSync(const cJSON *state);
@@ -84,6 +94,14 @@ private:
     void publishEvent(WiFiEvent event);
 
     bool setupAndConnectNewCredentials(MQTTConfiguration config);
+
+    // Client lock methods
+    bool requestClientLock(const char *client_id);
+    bool releaseClientLock(const char *client_id);
+    bool isClientAuthorized(const char *client_id);
+    void checkLockTimeout();
+    void publishLockResponse(const char *client_id, bool success);
+    void publishManagerStatus();
 
     void lock();
 };

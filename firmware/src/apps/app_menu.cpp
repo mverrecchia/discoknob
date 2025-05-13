@@ -3,7 +3,7 @@
 MenuApp::MenuApp(TFT_eSprite *spr_) : Menu(spr_)
 {
     back = MENU;
-    sprintf(room, "%s", "Office");
+    // sprintf(room, "%s", "Office");
 
     motor_config = PB_SmartKnobConfig{
         1,
@@ -96,9 +96,9 @@ TFT_eSprite *MenuApp::render()
 
     spr_->setTextDatum(CC_DATUM);
 
-    spr_->fillRect(center_h - room_lable_w / 2, label_vertical_offset, room_lable_w, room_lable_h + 1, current_item->screen_name.color); // +1 for height to draw circle right
-    spr_->fillCircle(center_h - room_lable_w / 2, label_vertical_offset + room_lable_h / 2, room_lable_h / 2, current_item->screen_name.color);
-    spr_->fillCircle(center_h + room_lable_w / 2, label_vertical_offset + room_lable_h / 2, room_lable_h / 2, current_item->screen_name.color);
+    // spr_->fillRect(center_h - room_lable_w / 2, label_vertical_offset, room_lable_w, room_lable_h + 1, current_item->screen_name.color); // +1 for height to draw circle right
+    // spr_->fillCircle(center_h - room_lable_w / 2, label_vertical_offset + room_lable_h / 2, room_lable_h / 2, current_item->screen_name.color);
+    // spr_->fillCircle(center_h + room_lable_w / 2, label_vertical_offset + room_lable_h / 2, room_lable_h / 2, current_item->screen_name.color);
 
     spr_->setTextColor(TFT_BLACK);
     spr_->setFreeFont(&Roboto_Thin_Bold_24);

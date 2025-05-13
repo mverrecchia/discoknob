@@ -4,7 +4,7 @@
 #include "task.h"
 #include "app_config.h"
 #include <vector>
-#include <Adafruit_VL53L0X.h>
+#include <Adafruit_VL6180X.h>
 
 #if SK_STRAIN
 #include <HX711.h>
@@ -65,4 +65,6 @@ private:
     float raw_initial_value_ = 0;
 
     float calibration_scale_ = 0;
+
+    Adafruit_VL6180X vl6180x;
 };

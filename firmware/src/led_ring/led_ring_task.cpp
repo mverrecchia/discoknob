@@ -13,12 +13,14 @@ uint8_t FULL_BRIGHTNESS = 127;
 
 LedRingTask::LedRingTask(const uint8_t task_core) : Task{"Led_Ring", 2048 * 2, 1, task_core}
 {
-
     render_effect_queue_ = xQueueCreate(10, sizeof(EffectSettings));
 
     mutex_ = xSemaphoreCreateMutex();
 
     assert(mutex_ != NULL);
+    
+    // Initialize effect_settings with a default ID that will go to the default case (all LEDs off)
+    effect_settings.effect_id = 255; // Using 255 as it's unlikely to be used as an actual effect ID
 }
 
 LedRingTask::~LedRingTask()
@@ -45,7 +47,7 @@ void LedRingTask::renderEffectSnake()
             }
             else
             {
-                leds[i].setRGB(10, 0, 0);
+                leds[i].setRGB(0, 0, 0); // Turn completely off instead of dim
             }
         }
         effect_statuses[0].percent++;
@@ -217,6 +219,10 @@ void LedRingTask::renderFadeOutEffect()
 
 void LedRingTask::run()
 {
+    // Initialize LED brightness array to 0
+    for (int i = 0; i < NUM_LEDS; i++) {
+        ledsBrightness[i] = 0;
+    }
 
     FastLED.addLeds<WS2812B, PIN_LED_DATA, GRB>(leds, NUM_LEDS);
     uint8_t hue = 150; // 150 = teal colour.
@@ -246,7 +252,12 @@ void LedRingTask::run()
 
         FastLED.show();
     }
+    
+    // Make sure all LEDs are completely off initially
     FastLED.clear();
+    for (int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = CRGB(0, 0, 0);
+    }
     FastLED.setBrightness(155);
     FastLED.show();
 
@@ -290,6 +301,12 @@ void LedRingTask::run()
             break;
 
         default:
+            // Make sure all LEDs stay off in the default case
+            FastLED.clear();
+            for (int i = 0; i < NUM_LEDS; i++) {
+                leds[i] = CRGB(0, 0, 0);
+            }
+            FastLED.show();
             break;
         }
 

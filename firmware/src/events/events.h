@@ -60,6 +60,20 @@ struct MQTTStateUpdate
     char state[256];
 };
 
+struct DiscoMessage
+{
+    // Rotation parameters
+    bool rotation_enabled;
+    bool rotation_direction;
+    float rotation_speed;
+    
+    // Spotlights parameters
+    bool spotlights_enabled;
+    int spotlights_mode;
+    int spotlights_mode_speed;
+    char spotlights_color[8]; // To hold color value like "#ff0000"
+};
+
 struct WiFiError
 {
     uint8_t retry_count;
@@ -100,8 +114,10 @@ union WiFiEventBody
     WiFiSTAConnecting wifi_sta_connected;
     MQTTConfiguration mqtt_connecting;
     MQTTStateUpdate mqtt_state_update;
+    DiscoMessage disco_message;
     Error error;
     uint8_t calibration_step;
+    uint8_t clap_count;
 };
 
 // TODO, think events more careful, for example add SK_MQTT_CREDENTIALS_RECIEVED
@@ -147,7 +163,11 @@ enum EventType
 
     SK_CONFIGURATION_SAVED,
 
-    SK_STRAIN_CALIBRATION
+    SK_STRAIN_CALIBRATION,
+    
+    SK_DOUBLE_CLAP_DETECTED,
+    
+    SK_DISCO_MESSAGE
 };
 
 typedef unsigned long SentAt;

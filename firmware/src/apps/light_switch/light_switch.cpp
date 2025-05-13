@@ -6,21 +6,36 @@ LightSwitchApp::LightSwitchApp(TFT_eSprite *spr_, char *app_id, char *friendly_n
     sprintf(this->friendly_name, "%s", friendly_name);
     sprintf(this->entity_id, "%s", entity_id);
 
+    // Use entity_id to determine which MQTT topic to use
+    if (strcmp(entity_id, "couch_switch_entity_id") == 0)
+    {
+        sprintf(this->mqtt_topic, "athom-9d86a1/switch/command");
+    }
+    else if (strcmp(entity_id, "neon_switch_entity_id") == 0)
+    {
+        sprintf(this->mqtt_topic, "athom-9d86ed/switch/command");
+    }
+    else
+    {
+        // Default fallback
+        sprintf(this->mqtt_topic, "athom-9d86a1/switch/command");
+    }
+
     motor_config = PB_SmartKnobConfig{
-        current_position,
-        0,
-        current_position,
-        0,
-        1,
-        60 * PI / 180,
-        1,
-        1,
-        0.55, // Note the snap point is slightly past the midpoint (0.5); compare to normal detents which use a snap point *past* the next value (i.e. > 1)
-        "",   // Change the type of app_id from char to char*
-        0,
-        {},
-        0,
-        27,
+        current_position, // position
+        0,                // sub_position_unit
+        current_position, // position_nonce
+        0,                // min_position
+        1,                // max_position
+        60 * PI / 180,    // position_width_radians
+        1,                // detent_strength_unit
+        1,                // endstop_strength_unit
+        0.55,             // Note the snap point is slightly past the midpoint (0.5); compare to normal detents which use a snap point *past* the next value (i.e. > 1)
+        "",               // Change the type of app_id from char to char*
+        0,                // detent_positions_count
+        {},               // detent_positions
+        0,                // snap_point_bias
+        27,               // led_hue
     };
 
     big_icon = light_switch_80;
@@ -38,7 +53,7 @@ EntityStateUpdate LightSwitchApp::updateStateFromKnob(PB_SmartKnobState state)
 
     current_position = state.current_position;
     sub_position_unit = state.sub_position_unit;
-    // // needed to next reload of App
+    // needed to next reload of App
     motor_config.position_nonce = current_position;
     motor_config.position = current_position;
 
@@ -57,14 +72,8 @@ EntityStateUpdate LightSwitchApp::updateStateFromKnob(PB_SmartKnobState state)
     {
         sprintf(new_state.app_id, "%s", app_id);
         sprintf(new_state.entity_id, "%s", entity_id);
-        cJSON *json = cJSON_CreateObject();
-        cJSON_AddBoolToObject(json, "on", current_position > 0);
-
-        char *json_string = cJSON_PrintUnformatted(json);
-        sprintf(new_state.state, "%s", json_string);
-
-        cJSON_free(json_string);
-        cJSON_Delete(json);
+        sprintf(new_state.topic, "%s", mqtt_topic);
+        sprintf(new_state.state, "%s", current_position > 0 ? "ON" : "OFF");
 
         last_position = current_position;
         new_state.changed = true;
@@ -108,7 +117,7 @@ TFT_eSprite *LightSwitchApp::render()
 
     uint8_t icon_size = 80;
 
-    uint16_t offset_vertical = 20;
+    uint16_t offset_vertical = 0;
     uint16_t screen_radius = TFT_WIDTH / 2;
 
     float left_bound = PI / 2;

@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <esp_now.h>
+#include <WiFi.h>
 
 #include "configuration.h"
 #include "display_task.h"
@@ -6,8 +8,10 @@
 #include "motor_foc/motor_task.h"
 #include "network/wifi_task.h"
 #include "sensors/sensors_task.h"
+#include "microphone/microphone_task.h"
 #include "error_handling_flow/reset_task.h"
 #include "led_ring/led_ring_task.h"
+#include "esp_task_wdt.h"
 
 #include "driver/temp_sensor.h"
 
@@ -48,10 +52,17 @@ static MqttTask *mqtt_task_p = nullptr;
 static SensorsTask sensors_task(1, &config);
 static SensorsTask *sensors_task_p = &sensors_task;
 
+#if SK_MICROPHONE
+static MicrophoneTask microphone_task(1);
+static MicrophoneTask *microphone_task_p = &microphone_task;
+#else
+static MicrophoneTask *microphone_task_p = nullptr;
+#endif
+
 static ResetTask reset_task(1, config);
 static ResetTask *reset_task_p = &reset_task;
 
-RootTask root_task(0, &config, motor_task, display_task_p, wifi_task_p, mqtt_task_p, led_ring_task_p, sensors_task_p, reset_task_p);
+RootTask root_task(0, &config, motor_task, display_task_p, wifi_task_p, mqtt_task_p, led_ring_task_p, sensors_task_p, microphone_task_p, reset_task_p);
 
 void initTempSensor()
 {
@@ -61,9 +72,41 @@ void initTempSensor()
     temp_sensor_start();
 }
 
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
+{
+    LOGD("Last Packet Send Status: %d", uint8_t(status));
+    LOGD(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+
 void setup()
 {
+    // Disable Task Watchdog Timer for the current task (i.e., loop task)
+    // esp_task_wdt_init(10, true); // 10 seconds timeout, second parameter is "true" to reset the system on timeout
+
+    // Add the current task (loop task) to the watchdog
+    // esp_task_wdt_add(NULL);
+
+    // Disable Task Watchdog Timer for the current task (i.e., loop task)
+    // esp_task_wdt_delete(NULL);
+
+    // Optional: Disable the Task Watchdog Timer for all tasks
+    // esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(0)); // Core 0 IDLE task
+    // esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(1)); // Core 1 IDLE task
+    disableCore0WDT(); // Disables the watchdog timer on Core 0
+    disableCore1WDT(); // Disables the watchdog timer on Core 1
     initTempSensor();
+
+    WiFi.mode(WIFI_STA);
+
+    // Initialize ESP-NOW
+    if (esp_now_init() != ESP_OK)
+    {
+        Serial.println("Error initializing ESP-NOW");
+        return;
+    }
+
+    // register data sent callback
+    esp_now_register_send_cb(OnDataSent);
 
     // TODO: move from eeprom to ffatfs
     if (!EEPROM.begin(EEPROM_SIZE))
@@ -72,13 +115,11 @@ void setup()
     }
 
 #if SK_DISPLAY
+    LOGE("Test");
     display_task.begin();
 
     // Connect display to motor_task's knob state feed
     root_task.addListener(display_task.getKnobStateQueue());
-
-    // link apps from display task
-    root_task.setHassApps(display_task.getHassApps());
 
 #endif
 
@@ -90,6 +131,7 @@ void setup()
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     root_task.begin();
+
     if (!config.loadFromDisk())
     {
         config.saveToDisk();
@@ -112,6 +154,16 @@ void setup()
 
     sensors_task_p->addStateListener(root_task.getSensorsStateQueue());
     sensors_task_p->begin();
+
+#if SK_MICROPHONE
+    microphone_task_p->addStateListener(root_task.getMicrophoneStateQueue());
+    // Print memory information
+    Serial.printf("Free heap before microphone: %d bytes\n",
+                  heap_caps_get_free_size(MALLOC_CAP_8BIT));
+    Serial.printf("Largest free block: %d bytes\n",
+                  heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+    microphone_task_p->begin();
+#endif
 
     reset_task_p->begin();
 

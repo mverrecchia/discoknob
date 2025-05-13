@@ -46,14 +46,11 @@ void WifiTask::handleCommand(WiFiCommand command)
 {
     switch (command.type)
     {
-    case RequestAP:
-        this->startWiFiAP();
-        this->startWebServer();
-        break;
     case RequestSTA:
+        // In Demo mode, always try to connect with provided credentials
         if (this->startWiFiSTA(command.body.wifi_sta_config))
         {
-            this->startWebServer();
+            //     this->startWebServer(); // Still keep web server for OTA updates
         }
         break;
     default:
@@ -98,27 +95,6 @@ void OnWiFiEventGlobal(WiFiEvent_t event)
     }
 }
 
-void WifiTask::startWiFiAP()
-{
-    char passphrase[9] = "12345678";
-
-    // TODO, randomise hostname and password
-    WiFi.mode(WIFI_MODE_APSTA);
-    WiFi.onEvent(OnWiFiEventGlobal);
-    WiFi.softAP(config_.knob_id, passphrase);
-
-    WiFiEvent event;
-    event.type = SK_WIFI_AP_STARTED;
-
-    strcpy(event.body.wifi_ap_started.ssid, config_.knob_id);
-    strcpy(event.body.wifi_ap_started.passphrase, passphrase);
-
-    // DEBUG: added delay for testing, remove this on release
-    vTaskDelay(pdMS_TO_TICKS(2000));
-
-    publishWiFiEvent(event);
-}
-
 bool WifiTask::startWiFiSTA(WiFiConfiguration wifi_config)
 {
 
@@ -130,7 +106,6 @@ bool WifiTask::startWiFiSTA(WiFiConfiguration wifi_config)
     publishWiFiEvent(wifi_sta_connecting_event);
 
     WiFi.mode(WIFI_MODE_APSTA);
-    WiFi.begin(wifi_config.ssid, wifi_config.passphrase);
 
     WiFiEvent wifi_sta_connected;
     wifi_sta_connected.type = SK_WIFI_STA_CONNECTED;
@@ -166,6 +141,7 @@ bool WifiTask::tryNewCredentialsWiFiSTA(WiFiConfiguration wifi_config)
 
     if (WiFi.status() == WL_CONNECTED)
     {
+        LOGD("Connected to WiFi Network");
         WiFiEvent wifi_sta_connected;
         strcpy(wifi_sta_connected.body.wifi_sta_connected.ssid, wifi_config.ssid);
         strcpy(wifi_sta_connected.body.wifi_sta_connected.passphrase, wifi_config.passphrase);
@@ -356,11 +332,7 @@ void WifiTask::run()
 
         if (is_config_set && millis() - last_wifi_status_new > 3000 && WiFi.status() != WL_CONNECTED && retry_count < 3)
         {
-            LOGD("WiFi status: %d", WiFi.status());
-            LOGD("WiFi connected: %d", WiFi.isConnected());
-            LOGD("Retry count: %d", retry_count);
-            LOGD("last_wifi_status_new: %d", last_wifi_status_new);
-
+            LOGD("wifi status: %d", WiFi.status());
             WiFi.begin(config_.ssid, config_.passphrase);
             while (WiFi.status() != WL_CONNECTED)
             {
@@ -402,7 +374,7 @@ void WifiTask::run()
 
         wifi_notifier.loopTick();
 
-        delay(5);
+        delay(10);
     }
 }
 

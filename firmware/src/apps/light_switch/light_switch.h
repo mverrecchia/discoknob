@@ -22,4 +22,6 @@ private:
     float sub_position_unit = 0;
     float adjusted_sub_position = 0;
     bool first_run = false;
+
+    char mqtt_topic[100]; // Buffer to store the MQTT topic
 };
